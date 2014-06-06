@@ -38,7 +38,7 @@ void init_numpy()
 
 PyArrayObject *c_add(const double* v1, const double* v2, const unsigned int &size)
 {
-    printf("PyArrayObject *c_add(double*, double*, const unsigned int&)\n");
+    printf("PyArrayObject *c_add(const double*, const double*, const unsigned int&)\n");
     init_numpy(); // init NumPy if not already done
     
     // Define NumPy array
@@ -60,6 +60,8 @@ PyArrayObject *c_add(const double* v1, const double* v2, const unsigned int &siz
 
 void c_add_cuda(const double* h_v1, const double* h_v2, const unsigned int &size, double* h_vres)
 {
+    printf("void c_add_cuda(const double*, const double*, const unsigned int&, double*)\n");
+    
     // Build CUDA copies of the host arrays
     double *d_v1, *d_v2, *d_vres;
     cudaMalloc(&d_v1, size * sizeof(double)); // malloc + memcpy
@@ -93,6 +95,8 @@ __global__ void c_add_cuda_kernel(const double* d_v1, const double* d_v2, const 
 
 void c_add_cpu(const double* v1, const double* v2, const unsigned int &size, double* vres)
 {
+    printf("void c_add_cpu(const double*, const double*, const unsigned int&, double*)\n");
+    
     for (unsigned int i(0) ; i != size ; i++)
         vres[i] = v1[i] + v2[i];
 }

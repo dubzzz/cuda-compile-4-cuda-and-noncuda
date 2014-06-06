@@ -22,4 +22,5 @@
 *.x86_64
 *.hex
 
+src/cudanoncuda.c
 src/cudanoncuda.cpp
