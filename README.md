@@ -16,3 +16,9 @@ vb = np.random.random(5)
 # Depending on your environment it should run CUDA or CPU code
 vc = cnc.add(va, vb)
 ```
+
+This code is designed to build a Python extension. However if you want to create a standalone program the same technics apply:
+
+1. tweak the Makefile to check for CUDA
+2. if CUDA: use nvcc
+3. if not CUDA: use g++ or gcc with option '-x c++ -c' in front of each *.cu file (for c++ code) / '-x c -c' (for c code)
