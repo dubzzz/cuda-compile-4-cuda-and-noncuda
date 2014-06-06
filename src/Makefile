@@ -127,11 +127,13 @@ all: build
 build: cudanoncuda.so
 
 cudanoncuda-src.o: cudanoncuda-src.cu cudanoncuda-src.h
-	if [ -f "$(NVCC)" ]; then \
-		echo "Compiling using NVCC" ; \
+	@if [ -f "$(NVCC)" ]; then \
+		echo "\n-- Compiling using NVCC --\n" ; \
+        echo "$(NVCC) $(NVCCFLAGS) $(EXTRA_NVCCFLAGS) $(GENCODE_FLAGS) $(MAXRREGCOUNT) $(INCLUDES) -o $@ -c $< -Xcompiler -fPIC" ; \
 		$(NVCC) $(NVCCFLAGS) $(EXTRA_NVCCFLAGS) $(GENCODE_FLAGS) $(MAXRREGCOUNT) $(INCLUDES) -o $@ -c $< -Xcompiler -fPIC ; \
 	else \
-		echo "Compiling using GCC" ; \
+		echo "\n-- Compiling using GCC --\n" ; \
+		echo "$(GCC) $(CCFLAGS) $(PYINCLUDES) -o $@ -x c++ -c $< -fPIC" ; \
 		$(GCC) $(CCFLAGS) $(PYINCLUDES) -o $@ -x c++ -c $< -fPIC ; \
 	fi
 
@@ -139,9 +141,11 @@ cudanoncuda.c:
 	python -c "exec(\"from Cython.Build import cythonize\\ncythonize('cudanoncuda.pyx')\")"
 
 cudanoncuda.so: cudanoncuda.c cudanoncuda-src.o
-	if [ -f "$(NVCC)" ]; then \
+	@if [ -f "$(NVCC)" ]; then \
+		echo "$(GCC) $(CCFLAGS) -o $@ $+ $(LDFLAGS) $(EXTRA_LDFLAGS) $(INCLUDES) --shared -fPIC" ; \
 		$(GCC) $(CCFLAGS) -o $@ $+ $(LDFLAGS) $(EXTRA_LDFLAGS) $(INCLUDES) --shared -fPIC ; \
 	else \
+		echo "$(GCC) $(CCFLAGS) -o $@ $+ $(PYINCLUDES) --shared -fPIC" ; \
 		$(GCC) $(CCFLAGS) -o $@ $+ $(PYINCLUDES) --shared -fPIC ; \
 	fi
 
