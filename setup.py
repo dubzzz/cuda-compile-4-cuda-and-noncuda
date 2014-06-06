@@ -162,7 +162,7 @@ else:
     
 cython_exts = [module_ext]
 
-setup(name="mathmodule",
+setup(name="compile4cudanoncuda",
     cmdclass={'build_ext': cuda_build_ext,},
     description='Design a CUDA-program able to run on a non-CUDA computer. When dealing with a non-CUDA computer it should use CPU version of the code to do the same operation.',
     author='Nicolas Dubien',
