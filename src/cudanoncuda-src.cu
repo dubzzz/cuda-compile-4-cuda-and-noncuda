@@ -3,6 +3,11 @@
     checks on input data and cuda error recovery.
     
     The idea is just to design a simple way of dealing with CUDA and non-CUDA computers using a single sourcecode
+    
+    __CUDACC__: defines whether nvcc is steering compilation or not
+    __CUDA_ARCH__: is always undefined when compiling host code, steered by nvcc or not
+    __CUDA_ARCH__: is only defined for the device code trajectory of compilation steered by nvcc
+    //for further details: http://stackoverflow.com/questions/8796369/cuda-and-nvcc-using-the-preprocessor-to-choose-between-float-or-double
 */
 
 #include "cudanoncuda-src.h"
@@ -10,20 +15,24 @@
 
 void init_numpy();
 PyArrayObject *c_add(const double* v1, const double* v2, const unsigned int &size);
-void c_add_cuda(const double* h_v1, const double* h_v2, const unsigned int &size, double* h_vres);
-__global__ void c_add_cuda_kernel(const double* d_v1, const double* d_v2, const unsigned int size, double* d_vres);
+#ifdef __CUDACC__
+    void c_add_cuda(const double* h_v1, const double* h_v2, const unsigned int &size, double* h_vres);
+    __global__ void c_add_cuda_kernel(const double* d_v1, const double* d_v2, const unsigned int size, double* d_vres);
+#else
+    void c_add_cpu(const double* v1, const double* v2, const unsigned int &size, double* vres);
+#endif
 
 /**
     import_array has to be call
     before the first call to NumPy API
 */
-bool is_init(false);
+int is_init(0);
 void init_numpy()
 {
     if (! is_init)
     {
         import_array();
-        is_init = true;
+        is_init = 1;
     }
 }
 
@@ -36,11 +45,18 @@ PyArrayObject *c_add(const double* v1, const double* v2, const unsigned int &siz
     int dims[] = {size};
     PyArrayObject *vres = (PyArrayObject *) PyArray_FromDims(1, dims, NPY_DOUBLE);
     
-    // Apply CUDA version of c_add
-    c_add_cuda(v1, v2, size, (double*)vres->data);
+    #ifdef __CUDACC__
+        // Apply CUDA version of c_add
+        c_add_cuda(v1, v2, size, (double*)vres->data);
+    #else
+        // Apply GPU version of c_add
+        c_add_cpu(v1, v2, size, (double*)vres->data);
+    #endif
     
     return vres;
 }
+
+#ifdef __CUDACC__
 
 void c_add_cuda(const double* h_v1, const double* h_v2, const unsigned int &size, double* h_vres)
 {
@@ -72,4 +88,14 @@ __global__ void c_add_cuda_kernel(const double* d_v1, const double* d_v2, const 
         return;
     d_vres[i] = d_v1[i] + d_v2[i];    
 }
+
+#else
+
+void c_add_cpu(const double* v1, const double* v2, const unsigned int &size, double* vres)
+{
+    for (unsigned int i(0) ; i != size ; i++)
+        vres[i] = v1[i] + v2[i];
+}
+
+#endif
 

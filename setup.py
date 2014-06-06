@@ -71,6 +71,18 @@ def customize_compiler_for_nvcc(self):
     # object but distutils doesn't have the ability to change compilers
     # based on source extension: we add it.
     def _compile(obj, src, ext, cc_args, extra_postargs, pp_opts):
+        # if nvcc is not available on this computer
+        # temporarily change extension from .cu to .cpp (by creating a symlink to the original file)
+        # a better way to do so, would be to change cc_args so that it ends by: -x c++ -c
+        # unfortunately it does not work
+        if not CUDA and ext == ".cu":
+            original_src = src
+            src = src[:-3] + ".cpp"
+            ext = ".cpp"
+            if os.path.lexists(src):
+                os.remove(src)
+            os.symlink(join(os.getcwd(), original_src), src)
+        
         if os.path.splitext(src)[1] == '.cu':
             # use the cuda for .cu files
             self.set_executable('compiler_so', CUDA['nvcc'])
@@ -79,8 +91,14 @@ def customize_compiler_for_nvcc(self):
             postargs = extra_postargs['nvcc']
         else:
             postargs = extra_postargs['gcc']
-
-        super(obj, src, ext, cc_args, postargs, pp_opts)
+        
+        try:
+            super(obj, src, ext, cc_args, postargs, pp_opts)
+        finally:        
+            # remove the created symlink
+            if not CUDA and os.path.islink(src):
+                os.remove(src)
+        
         # reset the default compiler_so, which we might have changed for cuda
         self.compiler_so = default_compiler_so
 
@@ -107,7 +125,11 @@ def find_files_with_ext(path, ext):
     return files_list
 
 # Locate CUDA paths
-CUDA = locate_cuda()
+try:
+    CUDA = locate_cuda()
+except EnvironmentError:
+    CUDA = None
+    print("CUDA is not installed in your environment. The CPU version of this code will be compiled.")
 
 # Obtain the numpy include directory. This logic works across numpy versions.
 try:
@@ -118,17 +140,26 @@ except AttributeError:
 # ---- C/C++ EXTENSIONS ---- #
 
 # Build extension
-module_ext = Extension(name="src/cudanoncuda",
-    sources=["src/cudanoncuda-src.cu", "src/cudanoncuda.pyx"],
-    library_dirs=[CUDA['lib64']],
-    libraries=['cudart'],
-    language='c++',
-    runtime_library_dirs=[CUDA['lib64']],
-    extra_compile_args={
-        'gcc': ['-I/usr/share/pyshared/numpy/core/include/numpy'],
-        'nvcc': ['-I/usr/share/pyshared/numpy/core/include/numpy', '-arch=sm_20', '--use_fast_math', '--ptxas-options=-v', '-c', '--compiler-options', "'-fPIC'"]},
-    extra_link_args=['-lcudadevrt', '-lcudart'],
-    include_dirs=[numpy_include, CUDA['include'], 'src'])
+if CUDA:
+    module_ext = Extension(name="src/cudanoncuda",
+        sources=["src/cudanoncuda-src.cu", "src/cudanoncuda.pyx"],
+        library_dirs=[CUDA['lib64']],
+        libraries=['cudart'],
+        language='c++',
+        runtime_library_dirs=[CUDA['lib64']],
+        extra_compile_args={
+            'gcc': ['-I/usr/share/pyshared/numpy/core/include/numpy'],
+            'nvcc': ['-I/usr/share/pyshared/numpy/core/include/numpy', '-arch=sm_20', '--use_fast_math', '--ptxas-options=-v', '-c', '--compiler-options', "'-fPIC'"]},
+        extra_link_args=['-lcudadevrt', '-lcudart'],
+        include_dirs=[numpy_include, CUDA['include'], 'src'])
+else:
+    os.environ["CU"] = 'gcc'
+    module_ext = Extension(name="src/cudanoncuda",
+        sources=["src/cudanoncuda-src.cu", "src/cudanoncuda.pyx"],
+        language='c++',
+        extra_compile_args={'gcc': ['-I/usr/share/pyshared/numpy/core/include/numpy']},
+        include_dirs=[numpy_include, 'src'])
+    
 cython_exts = [module_ext]
 
 setup(name="mathmodule",
