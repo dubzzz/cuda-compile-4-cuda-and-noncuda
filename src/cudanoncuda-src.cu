@@ -15,24 +15,25 @@
 
 void init_numpy();
 PyArrayObject *c_add(const double* v1, const double* v2, const unsigned int &size);
+void c_add_cpu(const double* v1, const double* v2, const unsigned int &size, double* vres);
 #ifdef __CUDACC__
+    int __DEVICE_COUNT__(-1); // -1 means to be done
+    bool is_cuda_available();
     void c_add_cuda(const double* h_v1, const double* h_v2, const unsigned int &size, double* h_vres);
     __global__ void c_add_cuda_kernel(const double* d_v1, const double* d_v2, const unsigned int size, double* d_vres);
-#else
-    void c_add_cpu(const double* v1, const double* v2, const unsigned int &size, double* vres);
 #endif
 
 /**
     import_array has to be call
     before the first call to NumPy API
 */
-int is_init(0);
+bool is_init(false);
 void init_numpy()
 {
     if (! is_init)
     {
         import_array();
-        is_init = 1;
+        is_init = true;
     }
 }
 
@@ -46,8 +47,16 @@ PyArrayObject *c_add(const double* v1, const double* v2, const unsigned int &siz
     PyArrayObject *vres = (PyArrayObject *) PyArray_FromDims(1, dims, NPY_DOUBLE);
     
     #ifdef __CUDACC__
-        // Apply CUDA version of c_add
-        c_add_cuda(v1, v2, size, (double*)vres->data);
+        if (is_cuda_available())
+        {
+            // Apply CUDA version of c_add
+            c_add_cuda(v1, v2, size, (double*)vres->data);
+        }
+        else
+        {
+            // Apply GPU version of c_add
+            c_add_cpu(v1, v2, size, (double*)vres->data);
+        }
     #else
         // Apply GPU version of c_add
         c_add_cpu(v1, v2, size, (double*)vres->data);
@@ -58,9 +67,28 @@ PyArrayObject *c_add(const double* v1, const double* v2, const unsigned int &siz
 
 #ifdef __CUDACC__
 
+/**
+    Check if CUDA is available or not
+    
+    The check itself is only done one time.
+    Result is then stored in the variable __DEVICE_COUNT__
+*/
+bool is_cuda_available()
+{
+    printf("  bool is_cuda_available()\n");
+    if (__DEVICE_COUNT__ == -1)
+    {
+        printf("    performs the check\n");
+        cudaError_t e = cudaGetDeviceCount(&__DEVICE_COUNT__);
+        if (e != cudaSuccess)
+            __DEVICE_COUNT__ = 0;
+    }
+    return __DEVICE_COUNT__ != 0;
+}
+
 void c_add_cuda(const double* h_v1, const double* h_v2, const unsigned int &size, double* h_vres)
 {
-    printf("void c_add_cuda(const double*, const double*, const unsigned int&, double*)\n");
+    printf("  void c_add_cuda(const double*, const double*, const unsigned int&, double*)\n");
     
     // Build CUDA copies of the host arrays
     double *d_v1, *d_v2, *d_vres;
@@ -91,15 +119,13 @@ __global__ void c_add_cuda_kernel(const double* d_v1, const double* d_v2, const 
     d_vres[i] = d_v1[i] + d_v2[i];    
 }
 
-#else
+#endif
 
 void c_add_cpu(const double* v1, const double* v2, const unsigned int &size, double* vres)
 {
-    printf("void c_add_cpu(const double*, const double*, const unsigned int&, double*)\n");
+    printf("  void c_add_cpu(const double*, const double*, const unsigned int&, double*)\n");
     
     for (unsigned int i(0) ; i != size ; i++)
         vres[i] = v1[i] + v2[i];
 }
-
-#endif
 
