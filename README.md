@@ -37,3 +37,5 @@ vb = np.random.random(5)
 # Depending on your environment it should run CUDA or CPU code
 vc = cnc.add(va, vb)
 ```
+
+Remark: a code compiled on a computer with `nvcc` on it and executed on another computer without CUDA (or more precisely: without `libcudart.so`) will fail to run.
