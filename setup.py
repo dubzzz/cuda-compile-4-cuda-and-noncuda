@@ -71,33 +71,23 @@ def customize_compiler_for_nvcc(self):
     # object but distutils doesn't have the ability to change compilers
     # based on source extension: we add it.
     def _compile(obj, src, ext, cc_args, extra_postargs, pp_opts):
-        # if nvcc is not available on this computer
-        # temporarily change extension from .cu to .cpp (by creating a symlink to the original file)
-        # a better way to do so, would be to change cc_args so that it ends by: -x c++ -c
-        # unfortunately it does not work
-        if not CUDA and ext == ".cu":
-            original_src = src
-            src = src[:-3] + ".cpp"
-            ext = ".cpp"
-            if os.path.lexists(src):
-                os.remove(src)
-            os.symlink(join(os.getcwd(), original_src), src)
-        
-        if os.path.splitext(src)[1] == '.cu':
+        if CUDA and os.path.splitext(src)[1] == '.cu':
             # use the cuda for .cu files
             self.set_executable('compiler_so', CUDA['nvcc'])
             # use only a subset of the extra_postargs, which are 1-1 translated
             # from the extra_compile_args in the Extension class
             postargs = extra_postargs['nvcc']
         else:
+            # if nvcc is not available on this computer and current extension equals *.cu
+            # add '-x c++ -c' to cc_args
+            if not CUDA and ext == ".cu":
+                if cc_args[-1] == "-c":
+                    cc_args = cc_args[:-1] + ["-x", "c++", "-c"]
+                else:
+                    cc_args = cc_args + ["-x", "c++", "-c"]
             postargs = extra_postargs['gcc']
         
-        try:
-            super(obj, src, ext, cc_args, postargs, pp_opts)
-        finally:        
-            # remove the created symlink
-            if not CUDA and os.path.islink(src):
-                os.remove(src)
+        super(obj, src, ext, cc_args, postargs, pp_opts)
         
         # reset the default compiler_so, which we might have changed for cuda
         self.compiler_so = default_compiler_so
