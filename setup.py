@@ -127,9 +127,10 @@ def find_files_with_ext(path, ext):
 # Locate CUDA paths
 try:
     CUDA = locate_cuda()
-except EnvironmentError:
+except EnvironmentError, e:
     CUDA = None
     print("CUDA is not installed in your environment. The CPU version of this code will be compiled.")
+    print(e)
 
 # Obtain the numpy include directory. This logic works across numpy versions.
 try:
@@ -148,8 +149,8 @@ if CUDA:
         language='c++',
         runtime_library_dirs=[CUDA['lib64']],
         extra_compile_args={
-            'gcc': ['-I/usr/share/pyshared/numpy/core/include/numpy'],
-            'nvcc': ['-I/usr/share/pyshared/numpy/core/include/numpy', '-arch=sm_20', '--use_fast_math', '--ptxas-options=-v', '-c', '--compiler-options', "'-fPIC'"]},
+            'gcc': [],
+            'nvcc': ['-arch=sm_20', '--use_fast_math', '--ptxas-options=-v', '-c', '--compiler-options', "'-fPIC'"]},
         extra_link_args=['-lcudadevrt', '-lcudart'],
         include_dirs=[numpy_include, CUDA['include'], 'src'])
 else:
@@ -157,7 +158,7 @@ else:
     module_ext = Extension(name="src/cudanoncuda",
         sources=["src/cudanoncuda-src.cu", "src/cudanoncuda.pyx"],
         language='c++',
-        extra_compile_args={'gcc': ['-I/usr/share/pyshared/numpy/core/include/numpy']},
+        extra_compile_args={'gcc': []},
         include_dirs=[numpy_include, 'src'])
     
 cython_exts = [module_ext]
