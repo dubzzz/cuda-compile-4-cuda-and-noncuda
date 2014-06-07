@@ -132,6 +132,7 @@ except AttributeError:
 
 # Build extension
 if CUDA:
+    print("\n-- Compiling using NVCC --\n")
     module_ext = Extension(name="src/cudanoncuda",
         sources=["src/cudanoncuda-src.cu", "src/cudanoncuda.pyx"],
         library_dirs=[CUDA['lib64']],
@@ -144,7 +145,7 @@ if CUDA:
         extra_link_args=['-lcudadevrt', '-lcudart'],
         include_dirs=[numpy_include, CUDA['include'], 'src'])
 else:
-    os.environ["CU"] = 'gcc'
+    print("\n-- Compiling using GCC --\n")
     module_ext = Extension(name="src/cudanoncuda",
         sources=["src/cudanoncuda-src.cu", "src/cudanoncuda.pyx"],
         language='c++',
