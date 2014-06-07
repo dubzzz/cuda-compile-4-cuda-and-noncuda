@@ -57,11 +57,11 @@ PyArrayObject *c_add(const double* v1, const double* v2, const unsigned int &siz
         }
         else
         {
-            // Apply GPU version of c_add
+            // Apply CPU version of c_add
             c_add_cpu(v1, v2, size, (double*)vres->data);
         }
     #else
-        // Apply GPU version of c_add
+        // Apply CPU version of c_add
         c_add_cpu(v1, v2, size, (double*)vres->data);
     #endif
     
