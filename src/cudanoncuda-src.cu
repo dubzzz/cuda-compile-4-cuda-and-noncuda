@@ -16,7 +16,10 @@
 void init_numpy();
 PyArrayObject *c_add(const double* v1, const double* v2, const unsigned int &size);
 void c_add_cpu(const double* v1, const double* v2, const unsigned int &size, double* vres);
+
 #ifdef __CUDACC__
+    #define CUDA_MAJOR 2
+    #define CUDA_MINOR 0
     int __DEVICE_COUNT__(-1); // -1 means to be done
     bool is_cuda_available();
     void c_add_cuda(const double* h_v1, const double* h_v2, const unsigned int &size, double* h_vres);
@@ -69,6 +72,7 @@ PyArrayObject *c_add(const double* v1, const double* v2, const unsigned int &siz
 
 /**
     Check if CUDA is available or not
+    and compatible or not
     
     The check itself is only done one time.
     Result is then stored in the variable __DEVICE_COUNT__
@@ -79,9 +83,35 @@ bool is_cuda_available()
     if (__DEVICE_COUNT__ == -1)
     {
         printf("    performs the check\n");
-        cudaError_t e = cudaGetDeviceCount(&__DEVICE_COUNT__);
+        int deviceCount;
+        cudaError_t e = cudaGetDeviceCount(&deviceCount);
         if (e != cudaSuccess)
             __DEVICE_COUNT__ = 0;
+        else
+        {
+            printf("    %d GPU found:\n", deviceCount);
+            __DEVICE_COUNT__ = 0;
+            
+            // for each GPU check if it has the required compute capability
+            for (int i(0) ; i != deviceCount ; i++)
+            {
+                cudaDeviceProp prop;
+                e = cudaGetDeviceProperties(&prop, i);
+                if (e != cudaSuccess)
+                    printf("      fails to access device #%d\n", i);
+                else
+                {
+                    printf("      found: %s, with CUDA Compute Capability: %d.%d\n", prop.name, prop.major, prop.minor);
+                    // check compute capability
+                    if (prop.major > CUDA_MAJOR || (prop.major == CUDA_MAJOR && prop.minor >= CUDA_MINOR))
+                    {
+                        printf("        has the required compute capability\n");
+                        cudaSetDevice(i);
+                        __DEVICE_COUNT__++;
+                    }
+                }
+            }
+        }
     }
     return __DEVICE_COUNT__ != 0;
 }
